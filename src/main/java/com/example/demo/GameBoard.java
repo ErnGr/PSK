@@ -128,9 +128,9 @@ public class GameBoard {
         if(board[row][col].getView() == 'h' && state.equals("playing")){
             clickHidden(row, col);
         }
-        else if(state.equals("playing") && (board[row][col].getView()!='0'||
-                board[row][col].getView()!='m'||
-                board[row][col].getView()!='f'||
+        else if(state.equals("playing") && (board[row][col].getView()!='0'&&
+                board[row][col].getView()!='m'&&
+                board[row][col].getView()!='f'&&
                 board[row][col].getView()!='h')){
             clickNumber(row, col);
         }
