@@ -5,71 +5,89 @@ import lombok.Getter;
 import java.security.SecureRandom;
 
 public class GameBoard {
-    private final GameTile[][] board = new GameTile[12][12];
-    //private final int[][] board = new int[12][12];
-    //@Getter
-    //private final char[][] view = new char[12][12];
+    private final int boardSize;
+    private final int mineCount;
+    private final GameTile[][] board;
+    private static final String STATE_PLAYING = "playing";
     @Getter
     private boolean generated = false;
     private final SecureRandom random = new SecureRandom();
     @Getter
-    private String state = "playing";
+    private String state = STATE_PLAYING;
 
-    GameBoard(){
-        for(int i = 0; i < 12; i++){
-            for(int j = 0; j < 12; j++){
+    GameBoard() {
+        this(12, 20);
+    }
+
+    GameBoard(int boardSize, int mineCount) {
+        this.boardSize = boardSize;
+        this.mineCount = mineCount;
+        this.board = new GameTile[boardSize][boardSize];
+        for(int i = 0; i < boardSize; i++){
+            for(int j = 0; j < boardSize; j++){
                 board[i][j] = new GameTile(0,'h');
             }
         }
     }
-//
+
     public void clearBoard()
     {
         generated = false;
-        state = "playing";
-        for(int i = 0; i < 12; i++){
-            for(int j = 0; j < 12; j++){
+        state = STATE_PLAYING;
+        for(int i = 0; i < boardSize; i++){
+            for(int j = 0; j < boardSize; j++){
                 board[i][j] = new GameTile(0,'h');
             }
         }
     }
 
-    public void generateBoard(int clickRow, int clickCol){
-        for(int i=0; i<20; i++) {
-            int row = random.nextInt(12);
-            int col = random.nextInt(12);
-            while(board[row][col].getReal() != 0 ||
-                    (row >= clickRow -1 && row <= clickRow + 1
-                            && col >= clickCol -1 && col <= clickCol + 1)) {
-                row = random.nextInt(12);
-                col = random.nextInt(12);
-            }
+    public void generateBoard(int clickRow, int clickCol) {
+        placeMines(clickRow, clickCol);
+        calculateAdjacentNumbers();
+        generated = true;
+    }
+
+    private void placeMines(int clickRow, int clickCol) {
+        for (int i = 0; i < mineCount; i++) {
+            int row;
+            int col;
+            do {
+                row = random.nextInt(boardSize);
+                col = random.nextInt(boardSize);
+            } while (board[row][col].getReal() != 0 ||
+                    (row >= clickRow - 1 && row <= clickRow + 1
+                            && col >= clickCol - 1 && col <= clickCol + 1));
             board[row][col].setReal(-1);
         }
-        for(int i=0; i<12; i++) {
-            for (int j=0; j<12; j++){
-                if(board[i][j].getReal() != -1){
-                    int mines = 0;
-                    for(int a = i-1; a<= i+1; a++){
-                        for(int b = j-1; b<= j+1; b++){
-                            if(a>=0&&a<12&&b>=0&&b<12){
-                                if(board[a][b].getReal() == -1){
-                                    mines++;
-                                }
-                            }
-                        }
-                    }
-                    board[i][j].setReal(mines);
+    }
+
+    private void calculateAdjacentNumbers() {
+        for (int i = 0; i < boardSize; i++) {
+            for (int j = 0; j < boardSize; j++) {
+                if (board[i][j].getReal() != -1) {
+                    board[i][j].setReal(countAdjacentMines(i, j));
                 }
             }
         }
-        generated = true;
+    }
+
+    private int countAdjacentMines(int row, int col) {
+        int mines = 0;
+        for (int a = row - 1; a <= row + 1; a++) {
+            for (int b = col - 1; b <= col + 1; b++) {
+                if (a >= 0 && a < boardSize && b >= 0 && b < boardSize && board[a][b].getReal() == -1) {
+                        mines++;
+                    }
+
+            }
+        }
+        return mines;
     }
 
     private void checkWin() {
         boolean checkWin = true;
-        for(int i=0; i<12; i++) {
-            for(int j=0; j<12; j++) {
+        for(int i=0; i<boardSize; i++) {
+            for(int j=0; j<boardSize; j++) {
                 if (((board[i][j].getReal() == -1) && (board[i][j].getView() == 'm')) || ((board[i][j].getReal() != -1) && (board[i][j].getView() == 'f' || board[i][j].getView() == 'h'))) {
                     checkWin = false;
                     break;
@@ -95,40 +113,50 @@ public class GameBoard {
                 clickNumber(row, col);
             break;
             default:
-                board[row][col].setView((char)(board[row][col].getReal()+((int)'0')));
+                board[row][col].setView((char)(board[row][col].getReal()+('0')));
                 break;
         }
     }
 
     private void clickNumber(int row, int col) {
-        int flagsAround = 0;
-        for(int i=row-1; i<=row+1; i++) {
-            for(int j=col-1; j<=col+1; j++) {
-                if(i>=0&&i<12&&j>=0&&j<12) {
-                    if(board[i][j].getView() == 'f'){
-                        flagsAround++;
-                    }
+        if(countFlagsAround(row, col) ==
+                Character.getNumericValue(board[row][col].getView())) {
+            revealNeighbors(row, col);
+        }
+    }
+
+    private int countFlagsAround(int row, int col) {
+        int flags = 0;
+        for(int i = row-1; i <= row+1; i++) {
+            for(int j = col-1; j <= col+1; j++) {
+                if(isInBounds(i, j) && board[i][j].getView() == 'f') {
+                    flags++;
                 }
             }
         }
-        if(flagsAround==Character.getNumericValue(board[row][col].getView())) {
-            for(int i=row-1; i<=row+1; i++) {
-                for(int j=col-1; j<=col+1; j++) {
-                    if(i>=0&&i<12&&j>=0&&j<12) {
-                        if(board[i][j].getView() == 'h'){
-                            click(i, j);
-                        }
-                    }
+        return flags;
+    }
+
+    private void revealNeighbors(int row, int col) {
+        for(int i = row-1; i <= row+1; i++) {
+            for(int j = col-1; j <= col+1; j++) {
+                if(isInBounds(i, j) && board[i][j].getView() == 'h') {
+                    click(i, j);
                 }
             }
         }
     }
 
+    private boolean isInBounds(int row, int col) {
+        return row >= 0 && row < boardSize
+                && col >= 0 && col < boardSize;
+    }
+
     public void click(int row, int col) {
-        if(board[row][col].getView() == 'h' && state.equals("playing")){
+        if(board[row][col].getView() == 'h' && state.equals(STATE_PLAYING)){
             clickHidden(row, col);
         }
-        else if(state.equals("playing") && (board[row][col].getView()!='0'&&
+        else if(state.equals(STATE_PLAYING) && (board[row][col].getView()!='0'&&
                 board[row][col].getView()!='m'&&
                 board[row][col].getView()!='f'&&
                 board[row][col].getView()!='h')){
@@ -142,9 +170,9 @@ public class GameBoard {
     }
 
     public char[][] getView(){
-        char[][] view = new char[12][12];
-        for(int i=0; i<12; i++) {
-            for(int j=0; j<12; j++) {
+        char[][] view = new char[boardSize][boardSize];
+        for(int i=0; i<boardSize; i++) {
+            for(int j=0; j<boardSize; j++) {
                 view[i][j] = board[i][j].getView();
             }
         }
